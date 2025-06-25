@@ -1,0 +1,66 @@
+/* src/index.css */
+
+/*
+  Ceci est la seule ligne nécessaire pour importer Tailwind CSS lorsque configuré via PostCSS.
+  Elle remplacera toutes les classes Tailwind par le CSS généré.
+*/
+@import "tailwindcss";
+
+/*
+  Ci-dessous, vous pouvez ajouter vos propres styles CSS globaux qui ne sont pas gérés par Tailwind,
+  comme la police par défaut pour le corps du document, et les animations de fond.
+*/
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif; /* Assurez-vous d'importer Inter via Google Fonts dans index.html si ce n'est pas déjà fait */
+  background-color: #0d0d0d; /* Un fond noir très foncé pour s'harmoniser avec l'affiche */
+  overflow-x: hidden; /* Empêche le défilement horizontal causé par des éléments débordants */
+  position: relative; /* Nécessaire pour positionner des éléments animés en arrière-plan */
+}
+
+/* Keyframes pour une animation simple de ballon flottant */
+@keyframes float {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.7;
+  }
+  25% {
+    transform: translate(15px, -10px) rotate(3deg);
+  }
+  50% {
+    transform: translate(0, -20px) rotate(0deg);
+    opacity: 1;
+  }
+  75% {
+    transform: translate(-15px, -10px) rotate(-3deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.7;
+  }
+}
+
+/* Applique l'animation à une classe spécifique */
+.animate-balloon {
+  animation: float ease-in-out infinite;
+}
+
+/* Styles pour les pseudo-éléments "fils" des ballons (optionnel, pour l'esthétique) */
+.balloon::after {
+  content: '';
+  position: absolute;
+  bottom: -15px; /* Ajuster pour que le "fil" sorte du bas du ballon */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 20px; /* Longueur du fil */
+  background-color: rgba(255, 255, 255, 0.4);
+  border-radius: 0 0 50% 50%; /* Pour une base arrondie */
+}
+
+
+/*
+  Toutes les autres règles CSS par défaut (comme celles pour :root, a, h1, button, @media)
+  devraient être supprimées de ce fichier. Gérez ces styles via les classes Tailwind
+  directement dans vos composants React ou en configurant votre thème dans `tailwind.config.js`.
+*/

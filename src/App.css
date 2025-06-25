@@ -1,0 +1,30 @@
+/* src/index.css */
+
+/* CES TROIS LIGNES SONT INDISPENSABLES POUR TAILWIND CSS */
+/* Elles seront remplacées par l'ensemble des styles générés par Tailwind lors de la compilation */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+   Optionnel : Vous pouvez ajouter ici des styles globaux TRÈS SPÉCIFIQUES
+   qui ne sont PAS gérés par Tailwind, mais évitez de définir des styles
+   génériques (#root, body, h1, p, etc.) qui pourraient entrer en conflit
+   avec le reset de Tailwind ou vos classes Tailwind.
+
+   Si vous souhaitez définir une police par défaut pour tout le document,
+   même là où vous n'appliquez pas directement de classes Tailwind, vous pouvez
+   l'ajouter ici :
+*/
+body {
+  margin: 0;
+  /* La police 'Inter' est déjà configurée dans tailwind.config.js,
+     vous pouvez l'appliquer globalement ici si vous le souhaitez. */
+  font-family: 'Inter', sans-serif; /* Assurez-vous d'importer Inter via Google Fonts si ce n'est pas déjà fait dans index.html ou main.jsx */
+}
+
+/*
+   Toutes les autres règles CSS par défaut de Vite, comme celles pour #root,
+   .logo, .card, etc., doivent être supprimées ou gérées via les classes Tailwind
+   directement dans vos composants React.
+*/
