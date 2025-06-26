@@ -6,7 +6,7 @@ import { getFirestore } from 'firebase/firestore'; // Importe le service de base
 // VOTRE CONFIGURATION FIREBASE - REMPLACEZ IMPÉRATIVEMENT CES VALEURS PAR CELLES DE VOTRE PROJET !
 // Vous pouvez trouver ces informations dans les paramètres de votre projet Firebase (Paramètres du projet > Vos applications > Web)
 const firebaseConfig = {
-  apiKey: "AIzaSyASOnEEHJyJJJ850Yl2onKAqVMy8hRz_7c", // REMPLACEZ CETTE VALEUR
+  apiKey: "AIzaSyDt-BuE5WZDBl8PGZJdauOISbQG9CskgZ4", // REMPLACEZ CETTE VALEUR
   authDomain: "application-bal-des-bacheliers.firebaseapp.com", // REMPLACEZ CETTE VALEUR
   projectId: "application-bal-des-bacheliers", // REMPLACEZ CETTE VALEUR
   storageBucket: "application-bal-des-bacheliers.firebasestorage.app", // REMPLACEZ CETTE VALEUR
