@@ -85,3 +85,4 @@ if (firebaseConfig && firebaseConfig.apiKey) {
 
 // Exporter les instances d'authentification et de base de données
 export { auth, db, userId };
+  

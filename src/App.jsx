@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'; // Importe useRef
+import React, { useState, useEffect } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -46,57 +46,7 @@ function App() {
   const [montantPayer, setMontantPayer] = useState(0);
 
   // URL du billet d'invitation PDF
-  // IMPORTANT : REMPLACEZ CETTE URL PAR L'URL PUBLIQUE DE VOTRE FICHIER PDF APRÈS L'AVOIR HÉBERGÉ EN LIGNE (par ex. sur Firebase Storage, Google Drive avec un lien de partage direct pour le TÉLÉCHARGEMENT)
-  // L'URL "uploaded:billet invite 2.pdf" n'est valide que dans l'environnement de développement Canvas et ne fonctionne pas pour le téléchargement direct dans un navigateur web standard.
-  // Un lien Google Drive comme '/view' peut ouvrir le visualiseur Drive au lieu de télécharger directement. Cherchez une option de lien direct de téléchargement ou utilisez Firebase Storage.
   const INVITATION_PDF_URL = 'https://drive.google.com/file/d/1ulbXhIuLIOqfHHLNRnBVPTN6XKwpxBFt/view?usp=drive_link';
-
-  // Référence pour le moteur de confettis
-  const confettiRef = useRef(null);
-  // État pour indiquer si la bibliothèque de confettis est prête
-  const [confettiReady, setConfettiReady] = useState(false);
-
-  // Initialise JSConfetti une fois que la bibliothèque est disponible
-  useEffect(() => {
-    let intervalId;
-    const checkConfettiReady = () => {
-      if (window.JSConfetti) {
-        if (!confettiRef.current) {
-          confettiRef.current = new window.JSConfetti();
-          console.log('JSConfetti instance initialized.');
-        }
-        setConfettiReady(true); // Indique que la bibliothèque est prête
-        clearInterval(intervalId); // Arrête de vérifier une fois prête
-      }
-    };
-
-    // Vérifie immédiatement et ensuite toutes les 100ms
-    checkConfettiReady();
-    intervalId = setInterval(checkConfettiReady, 100);
-
-    return () => clearInterval(intervalId); // Nettoyage de l'intervalle lors du démontage du composant
-  }, []); // S'exécute une seule fois au montage du composant
-
-  // Fonction pour déclencher les confettis
-  const shootConfetti = () => {
-    console.log('Tentative de déclenchement des confettis...');
-    if (confettiRef.current) { // Utilise l'instance stockée dans la réf
-      confettiRef.current.addConfetti({
-        confettiRadius: 6,
-        confettiNumber: 500,
-        confettiColors: [
-          '#FFD700', // Or
-          '#B8860B', // Or foncé
-          '#FFFFFF', // Blanc
-          '#000000', // Noir
-          '#FFC0CB', // Rose pâle (pour une touche de couleur festive)
-        ],
-      });
-      console.log('Confettis déclenchés !');
-    } else {
-      console.warn('Confetti instance not ready. Cannot shoot confetti.');
-    }
-  };
 
 
   // Génère un mot de passe aléatoire robuste
@@ -266,14 +216,6 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Effet pour déclencher les confettis quand le paiement est confirmé ET que la bibliothèque est prête
-  useEffect(() => {
-    console.log('paymentVerificationStatus a changé:', paymentVerificationStatus, 'Confetti ready:', confettiReady);
-    if (paymentVerificationStatus === 'confirmed' && confettiReady) {
-      shootConfetti();
-    }
-  }, [paymentVerificationStatus, confettiReady]); // Déclenche quand le statut de paiement ou la disponibilité des confettis change
-
   // Effet pour pré-remplir le champ de mot de passe lors du passage à la vue de connexion
   useEffect(() => {
     if (currentView === 'login') {
@@ -329,13 +271,32 @@ function App() {
     let isValid = true;
     const errors = {};
 
-    const requiredFields = ['nom', 'prenom', 'classe', 'telephone', 'email'];
+    // Vérifier l'utilisateur et son email au début de la soumission
+    if (!user || !user.email) {
+        alert("Une erreur d'authentification est survenue. Veuillez vous reconnecter.");
+        setCurrentView('auth');
+        return;
+    }
+
+    // Mise à jour de l'email dans userInfoFormData avec l'email de l'utilisateur authentifié
+    // Ceci est crucial pour s'assurer que la valeur est à jour au moment de la soumission.
+    const submissionEmail = user.email;
+    setUserInfoFormData(prevData => ({ ...prevData, email: submissionEmail }));
+
+
+    const requiredFields = ['nom', 'prenom', 'classe', 'telephone'];
     requiredFields.forEach(field => {
       if (!userInfoFormData[field] || (typeof userInfoFormData[field] === 'string' && !userInfoFormData[field].trim())) {
         isValid = false;
         errors[field] = 'Ce champ est obligatoire.';
       }
     });
+
+    // Validation de l'email directement depuis user.email
+    if (!submissionEmail || !submissionEmail.trim()) {
+        isValid = false;
+        errors.email = 'L\'adresse e-mail de l\'utilisateur connecté est manquante.';
+    }
 
     if (!/^\d{7,9}$/.test(userInfoFormData.telephone.trim())) {
       isValid = false;
@@ -352,29 +313,25 @@ function App() {
       return;
     }
 
-    if (user) {
-      const userDocRef = doc(db, 'inscriptions', user.uid);
-      try {
-        await setDoc(userDocRef, {
-          nom: userInfoFormData.nom,
-          prenom: userInfoFormData.prenom,
-          classe: userInfoFormData.classe,
-          telephone: userInfoFormData.telephone,
-          email: userInfoFormData.email,
-          userId: user.uid,
-          status: 'partially_registered', // Marque comme partiellement enregistré
-          lastUpdated: new Date().toISOString()
-        }, { merge: true });
-        console.log('Informations personnelles sauvegardées !');
-        alert('Informations personnelles sauvegardées !');
-        setCurrentView('fullForm');
-      } catch (error) {
-        console.error("Erreur lors de l'enregistrement des informations personnelles:", error);
-        alert("Erreur lors de la sauvegarde de vos informations. Veuillez réessayer.");
-      }
-    } else {
-      alert("Vous devez être connecté pour enregistrer vos informations.");
-      setCurrentView('auth');
+    // user est déjà vérifié au début de la fonction
+    const userDocRef = doc(db, 'inscriptions', user.uid);
+    try {
+      await setDoc(userDocRef, {
+        nom: userInfoFormData.nom,
+        prenom: userInfoFormData.prenom,
+        classe: userInfoFormData.classe,
+        telephone: userInfoFormData.telephone,
+        email: submissionEmail, // Utiliser l'email directement de l'utilisateur authentifié
+        userId: user.uid,
+        status: 'partially_registered', // Marque comme partiellement enregistré
+        lastUpdated: new Date().toISOString()
+      }, { merge: true });
+      console.log('Informations personnelles sauvegardées !');
+      alert('Informations personnelles sauvegardées !');
+      setCurrentView('fullForm');
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement des informations personnelles:", error);
+      alert("Erreur lors de la sauvegarde de vos informations. Veuillez réessayer.");
     }
   };
 
@@ -449,7 +406,7 @@ function App() {
         });
         setPaymentVerificationStatus(status);
         console.log(`Statut de paiement simulé mis à jour à : ${status}`);
-        // Pas besoin d'alerte ici, le useEffect déclenchera les confettis
+        // Pas besoin d'alerte ici
       } catch (error) {
         console.error("Erreur lors de la mise à jour simulée du paiement:", error);
         alert("Erreur lors de la simulation de la mise à jour du paiement.");
@@ -463,15 +420,8 @@ function App() {
   // Vue d'authentification (choix Connexion/Inscription)
   if (currentView === 'auth') {
     return (
-      <div className="min-h-screen flex justify-center items-center py-8 bg-gray-950 text-gray-100 font-inter relative overflow-hidden">
-        {/* Ballons animés pour le fond */}
-        <div className="absolute top-0 left-1/4 w-24 h-24 bg-amber-400 rounded-full z-0 opacity-75 animate-balloon float" style={{ animationDelay: '0s', animationDuration: '8s' }}></div>
-        <div className="absolute top-1/2 right-1/3 w-16 h-16 bg-gray-700 rounded-full z-0 opacity-60 animate-balloon float" style={{ animationDelay: '2s', animationDuration: '7s' }}></div>
-        <div className="absolute bottom-1/4 left-1/12 w-20 h-20 bg-amber-600 rounded-full z-0 opacity-80 animate-balloon float" style={{ animationDelay: '4s', animationDuration: '9s' }}></div>
-        <div className="absolute top-1/5 right-1/10 w-28 h-28 bg-yellow-500 rounded-full z-0 opacity-70 animate-balloon float" style={{ animationDelay: '1s', animationDuration: '10s' }}></div>
-        <div className="absolute bottom-1/5 left-1/3 w-14 h-14 bg-white rounded-full z-0 opacity-50 animate-balloon float" style={{ animationDelay: '3s', animationDuration: '6s' }}></div>
-
-        <div className="container max-w-md w-full p-8 rounded-xl shadow-lg bg-gray-900 text-center relative z-10">
+      <div className="min-h-screen flex justify-center items-center py-8 bg-gray-950 text-gray-100 font-inter">
+        <div className="container max-w-md w-full p-8 rounded-xl shadow-lg bg-gray-900 text-center">
           <h2 className="text-3xl font-bold text-amber-400 mb-6">Bienvenue au Bal des Bacheliers !</h2>
           <p className="text-gray-300 mb-8">Veuillez vous connecter ou vous inscrire pour continuer.</p>
 
@@ -503,13 +453,8 @@ function App() {
   // Vue de connexion
   if (currentView === 'login') {
     return (
-
-      <div className="min-h-screen flex justify-center items-center py-8 bg-gray-950 text-gray-100 font-inter relative overflow-hidden">
-        {/* Ballons animés pour le fond */}
-        <div className="absolute top-0 left-1/4 w-24 h-24 bg-amber-400 rounded-full z-0 opacity-75 animate-balloon float" style={{ animationDelay: '0s', animationDuration: '8s' }}></div>
-        <div className="absolute top-1/2 right-1/3 w-16 h-16 bg-gray-700 rounded-full z-0 opacity-60 animate-balloon float" style={{ animationDelay: '2s', animationDuration: '7s' }}></div>
-
-        <div className="container max-w-md w-full p-8 rounded-xl shadow-lg bg-gray-900 relative z-10">
+      <div className="min-h-screen flex justify-center items-center py-8 bg-gray-950 text-gray-100 font-inter">
+        <div className="container max-w-md w-full p-8 rounded-xl shadow-lg bg-gray-900">
           <h2 className="text-3xl font-bold text-amber-400 mb-6 text-center">Connexion</h2>
           <p className="text-gray-300 mb-4 text-center">Connectez-vous pour accéder au formulaire.</p>
 
@@ -563,12 +508,8 @@ function App() {
   // Vue d'inscription
   if (currentView === 'register') {
     return (
-      <div className="min-h-screen flex justify-center items-center py-8 bg-gray-950 text-gray-100 font-inter relative overflow-hidden">
-        {/* Ballons animés pour le fond */}
-        <div className="absolute top-1/5 left-1/10 w-28 h-28 bg-yellow-500 rounded-full z-0 opacity-70 animate-balloon float" style={{ animationDelay: '1s', animationDuration: '10s' }}></div>
-        <div className="absolute bottom-1/5 left-1/3 w-14 h-14 bg-white rounded-full z-0 opacity-50 animate-balloon float" style={{ animationDelay: '3s', animationDuration: '6s' }}></div>
-
-        <div className="container max-w-md w-full p-8 rounded-xl shadow-lg bg-gray-900 relative z-10">
+      <div className="min-h-screen flex justify-center items-center py-8 bg-gray-950 text-gray-100 font-inter">
+        <div className="container max-w-md w-full p-8 rounded-xl shadow-lg bg-gray-900">
           <h2 className="text-3xl font-bold text-amber-400 mb-6 text-center">Inscription</h2>
           <p className="text-gray-300 mb-4 text-center">Créez un compte pour vous inscrire au bal.</p>
 
@@ -615,13 +556,8 @@ function App() {
   // Vue du formulaire des informations personnelles (première partie du formulaire principal)
   if (currentView === 'userInfoForm') {
     return (
-      <div className="min-h-screen flex justify-center items-start py-8 bg-gray-950 text-gray-100 font-inter relative overflow-hidden">
-        {/* Ballons animés pour le fond */}
-        <div className="absolute top-0 left-1/4 w-24 h-24 bg-amber-400 rounded-full z-0 opacity-75 animate-balloon float" style={{ animationDelay: '0s', animationDuration: '8s' }}></div>
-        <div className="absolute top-1/2 right-1/3 w-16 h-16 bg-gray-700 rounded-full z-0 opacity-60 animate-balloon float" style={{ animationDelay: '2s', animationDuration: '7s' }}></div>
-        <div className="absolute bottom-1/4 left-1/12 w-20 h-20 bg-amber-600 rounded-full z-0 opacity-80 animate-balloon float" style={{ animationDelay: '4s', animationDuration: '9s' }}></div>
-
-        <div className="container max-w-2xl w-full p-8 rounded-xl shadow-lg bg-gray-900 relative z-10 overflow-visible">
+      <div className="min-h-screen flex justify-center items-start py-8 bg-gray-950 text-gray-100 font-inter">
+        <div className="container max-w-2xl w-full p-8 rounded-xl shadow-lg bg-gray-900 relative overflow-visible">
           {/* Bouton de déconnexion */}
           {user && (
             <div className="text-right mb-4">
@@ -636,9 +572,6 @@ function App() {
             <img src="https://placehold.co/80x80/FFD700/000?text=🎓" alt="Chapeau de Diplômé" className="mx-auto mb-4 w-20 h-20 filter drop-shadow-[0_0_5px_rgba(255,215,0,0.7)]" />
             <h1 className="text-amber-400 text-4xl font-bold mb-1 uppercase tracking-wider">LE BAL DES BACHELIERS</h1>
             <h2 className="text-gray-200 text-lg font-normal mt-0 uppercase tracking-wide">CLÔTURONS LA FIN D'ANNÉE 2K25</h2>
-            {/* Les ballons dans l'en-tête sont des placeholders image, nous allons les remplacer par des div animées si possible */}
-            {/* <img src="https://placehold.co/100x150/FFD700/000?text=🎈" alt="Ballon Doré" className="absolute top-0 left-[-50px] w-24 h-36 transform -rotate-15 filter drop-shadow-[0_0_8px_rgba(0,0,0,0.6)]" />
-            <img src="https://placehold.co/100x150/000000/FFF?text=🎈" alt="Ballon Noir" className="absolute top-0 right-[-50px] w-24 h-36 transform rotate-15 filter drop-shadow-[0_0_8px_rgba(0,0,0,0.6)]" /> */}
           </header>
 
           <p className="text-center mb-8 text-gray-300 text-base leading-relaxed">
@@ -682,6 +615,7 @@ function App() {
 
               <div className="mb-4">
                 <label htmlFor="email" className="block text-gray-200 font-bold mb-2">Adresse Email :</label>
+                {/* Le champ email est en lecture seule, sa valeur vient de l'authentification */}
                 <input type="email" id="email" name="email" value={userInfoFormData.email} readOnly disabled
                   className="w-full p-3 rounded-md border border-gray-700 bg-gray-700 text-gray-100 cursor-not-allowed opacity-80" />
                 <small className="block mt-1 text-gray-400 text-sm">Cet e-mail est celui de votre compte. Il ne peut pas être modifié ici.</small>
@@ -700,12 +634,8 @@ function App() {
   // Vue du formulaire complet (après informations personnelles)
   if (currentView === 'fullForm') {
     return (
-      <div className="min-h-screen flex justify-center items-start py-8 bg-gray-950 text-gray-100 font-inter relative overflow-hidden">
-        {/* Ballons animés pour le fond */}
-        <div className="absolute top-1/5 right-1/10 w-28 h-28 bg-yellow-500 rounded-full z-0 opacity-70 animate-balloon float" style={{ animationDelay: '1s', animationDuration: '10s' }}></div>
-        <div className="absolute bottom-1/5 left-1/3 w-14 h-14 bg-white rounded-full z-0 opacity-50 animate-balloon float" style={{ animationDelay: '3s', animationDuration: '6s' }}></div>
-
-        <div className="container max-w-2xl w-full p-8 rounded-xl shadow-lg bg-gray-900 relative z-10 overflow-visible">
+      <div className="min-h-screen flex justify-center items-start py-8 bg-gray-950 text-gray-100 font-inter">
+        <div className="container max-w-2xl w-full p-8 rounded-xl shadow-lg bg-gray-900 relative overflow-visible">
           {/* Bouton de déconnexion */}
           {user && (
             <div className="text-right mb-4">
@@ -720,9 +650,6 @@ function App() {
             <img src="https://placehold.co/80x80/FFD700/000?text=🎓" alt="Chapeau de Diplômé" className="mx-auto mb-4 w-20 h-20 filter drop-shadow-[0_0_5px_rgba(255,215,0,0.7)]" />
             <h1 className="text-amber-400 text-4xl font-bold mb-1 uppercase tracking-wider">LE BAL DES BACHELIERS</h1>
             <h2 className="text-gray-200 text-lg font-normal mt-0 uppercase tracking-wide">CLÔTURONS LA FIN D'ANNÉE 2K25</h2>
-            {/* Les ballons dans l'en-tête sont des placeholders image */}
-            {/* <img src="https://placehold.co/100x150/FFD700/000?text=🎈" alt="Ballon Doré" className="absolute top-0 left-[-50px] w-24 h-36 transform -rotate-15 filter drop-shadow-[0_0_8px_rgba(0,0,0,0.6)]" />
-            <img src="https://placehold.co/100x150/000000/FFF?text=🎈" alt="Ballon Noir" className="absolute top-0 right-[-50px] w-24 h-36 transform rotate-15 filter drop-shadow-[0_0_8px_rgba(0,0,0,0.6)]" /> */}
           </header>
 
           <p className="text-center mb-8 text-gray-300 text-base leading-relaxed">
@@ -808,7 +735,6 @@ function App() {
               </div>
             </fieldset>
 
-            {/* Bouton de soumission */}
             <button type="submit" className="w-full py-4 bg-amber-400 text-gray-900 font-bold text-xl uppercase tracking-wider rounded-lg shadow-lg hover:bg-amber-500 transform hover:-translate-y-1 transition duration-200 ease-in-out">
               Soumettre l'Inscription
             </button>
@@ -821,15 +747,8 @@ function App() {
   // Vue pour le Statut de Paiement
   if (currentView === 'paymentStatusView') {
     return (
-      <div className="min-h-screen flex justify-center items-center py-8 bg-gray-950 text-gray-100 font-inter relative overflow-hidden">
-        {/* Ballons animés pour le fond */}
-        <div className="absolute top-0 left-1/4 w-24 h-24 bg-amber-400 rounded-full z-0 opacity-75 animate-balloon float" style={{ animationDelay: '0s', animationDuration: '8s' }}></div>
-        <div className="absolute top-1/2 right-1/3 w-16 h-16 bg-gray-700 rounded-full z-0 opacity-60 animate-balloon float" style={{ animationDelay: '2s', animationDuration: '7s' }}></div>
-        <div className="absolute bottom-1/4 left-1/12 w-20 h-20 bg-amber-600 rounded-full z-0 opacity-80 animate-balloon float" style={{ animationDelay: '4s', animationDuration: '9s' }}></div>
-        <div className="absolute top-1/5 right-1/10 w-28 h-28 bg-yellow-500 rounded-full z-0 opacity-70 animate-balloon float" style={{ animationDelay: '1s', animationDuration: '10s' }}></div>
-        <div className="absolute bottom-1/5 left-1/3 w-14 h-14 bg-white rounded-full z-0 opacity-50 animate-balloon float" style={{ animationDelay: '3s', animationDuration: '6s' }}></div>
-
-        <div className="container max-w-lg w-full p-8 rounded-xl shadow-lg bg-gray-900 text-center relative z-10">
+      <div className="min-h-screen flex justify-center items-center py-8 bg-gray-950 text-gray-100 font-inter">
+        <div className="container max-w-lg w-full p-8 rounded-xl shadow-lg bg-gray-900 text-center">
           {user && (
             <div className="text-right mb-4">
               <span className="text-gray-400 text-sm mr-2">Connecté(e) : {user.email}</span>
@@ -850,7 +769,7 @@ function App() {
 
           {paymentVerificationStatus === 'confirmed' && (
             <div className="bg-emerald-900 text-emerald-200 p-4 rounded-md mb-6">
-              <p className="font-bold text-xl mb-2">Paiement Confirmé ! 🎉</p>
+              <p className="font-bold text-xl mb-2">Paiement Confirmé !</p>
               <p>Votre inscription est validée. Vous pouvez dès maintenant télécharger votre billet d'invitation.</p>
               <p className="font-bold mt-4">Nom: {userInfoFormData.nom} {userInfoFormData.prenom}</p>
               <p>Type de Billet: {fullFormData.typeBillet.split(' - ')[0]}</p>
@@ -917,7 +836,11 @@ function App() {
   }
 
   // Si aucune des vues précédentes ne correspond, retourner null (ou un composant de chargement/erreur)
-  return null;
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-950 text-gray-100">
+      <p>Chargement de l'application...</p>
+    </div>
+  );
 }
 
 export default App;
